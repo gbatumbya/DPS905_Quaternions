@@ -11,16 +11,18 @@
  * distributed under TPL - see ../Licenses.txt
  */
 
+#define _USE_MATH_DEFINES
+#include <math.h> 
+
 // material reflectivity
 //
 #define DEFAULT_SHININESS 10
 
 // Math Functions
 //
-const float PI =  3.14159265358979323846f; 
 #define SQR(x) ((x) * (x))
-#define DEGTORAD(x) (((x) * PI) / 180.0f)
-#define RADTODEG(x) (((x) * 180.0f) / PI)
+#define DEGTORAD(x) (((x) * M_PI) / 180.0f)
+#define RADTODEG(x) (((x) * 180.0f) / M_PI)
 #define LIMIT_RANGE(low, value, high)  { if (value < low) value = low; else if(value > high) value = high; }
 
 //-------------------------------- Vector -------------------------------------
@@ -139,14 +141,131 @@ struct Quaternion
 {
    float x, y, z, w;
 
-   Quaternion() : x(0), y(0), z(0), w(1) {}           // Indentity quaternion for multiplication
-   Quaternion(float xx, float yy, float zz, float ww) : x(xx), y(yy), z(zz), w(ww) { normalize(); }
-   Quaternion(float, float, float);                   // From euler angles in degrees
-   Quaternion(Vector, float);                         // From axis angle representation
-   void normalize();                                  // normalize the quaternion
-   Quaternion operator*(const Quaternion &q) const;
-   Quaternion& operator=(const Quaternion &q);
-   Matrix getRotationMatrix() const;
+   Quaternion(float xx = 0.0f, float yy = 0.0f, float zz = 0.0f, float ww = 1.0f) :
+      x(xx), y(yy), z(zz), w(ww) { normalize(); }
+
+   // From euler angles in degrees
+   Quaternion(float wX, float wY, float wZ)
+   {
+      double   
+      roll     = DEGTORAD(wX) / 2.0, 
+      pitch    = DEGTORAD(wY) / 2.0,
+      yaw      = DEGTORAD(wZ) / 2.0,
+
+      cosYaw   = cos(yaw),
+      cosPitch = cos(pitch),
+      cosRoll  = cos(roll),
+      sinYaw   = sin(yaw),
+      sinPitch = sin(pitch),
+      sinRoll  = sin(roll),
+
+      cosYawcosPitch    = cosYaw* cosPitch,
+      cosYawsinPitch    = cosYaw* sinPitch,
+      sinYawsinPitch    = sinYaw * sinPitch,
+      sinYawcosPitch    = sinYaw * cosPitch;
+
+   
+       x = float(sinRoll * cosYawcosPitch     -    cosRoll * sinYawsinPitch);
+       y = float(cosRoll * sinPitch * cosYaw  +    sinRoll * cosPitch * sinYaw);
+       z = float(cosRoll * cosPitch * sinYaw  -    sinRoll * sinPitch * cosYaw);
+       w = float(cosRoll * cosYawcosPitch     +    sinRoll * sinYawsinPitch);
+
+       normalize();
+   }
+
+   // From axis angle representation
+   Quaternion(Vector v, float ww)
+   {
+      // if axis is zero, then set to unit quaternion
+      if (v.x == 0 && v.y == 0 && v.z == 0)         
+      {
+         w   = 1.0f;
+         x   = 0.0f;
+         y   = 0.0f;
+         z   = 0.0f;
+
+         return;
+      }
+
+      if (v.length() != 1)
+      {
+         v = normal(v);
+      }  
+   
+      double rad = DEGTORAD(ww) / 2;
+      double scale   = sin(rad);
+
+      x = float(v.x * scale);
+      y = float(v.y * scale);
+      z = float(v.z * scale);
+      w = float(cos(rad));
+
+      normalize();
+   }
+
+   // normalize the quaternion
+   void normalize()
+   {
+      float norm = sqrt(SQR(x) + SQR(y) + SQR(z) + SQR(w));
+
+      x = x / norm;
+      y = y / norm;
+      z = z / norm;
+      w = w / norm;
+
+      LIMIT_RANGE(-1.0f, w, 1.0f);
+
+      LIMIT_RANGE(-1.0f, x, 1.0f);
+      LIMIT_RANGE(-1.0f, y, 1.0f);
+      LIMIT_RANGE(-1.0f, z, 1.0f);
+   }
+
+   Quaternion& operator=(const Quaternion &q)
+   {
+      x = q.x;
+      y = q.y;
+      z = q.z;
+      w = q.w;
+
+      return(*this);
+   }
+
+   Quaternion operator*(const Quaternion &q) const
+   {
+      return Quaternion(
+         q.w*x + q.x*w + q.y*z - q.z*y,   // x
+         q.w*y + q.y*w + q.z*x - q.x*z,   // y
+         q.w*z + q.z*w + q.x*y - q.y*x,   // z
+         q.w*w - q.x*x - q.y*y - q.z*z);
+   }
+
+   //Reference http://osdir.com/ml/games.devel.algorithms/2002-11/msg00318.html
+   Matrix getRotationMatrix() const
+   {
+      float 
+      x2 = SQR(x),
+      y2 = SQR(y),
+      z2 = SQR(z),
+      w2 = SQR(w),
+      xy = x * y,
+      xz = x * z,
+      yz = y * z,
+      wx = w * x,
+      wy = w * y,
+      wz = w * z;
+
+   #if Z_AXIS == NEAR_TO_FAR
+      return Matrix(1-2*y2-2*z2,    2*xy - 2*wz,      2*xz + 2*wy,      0,
+                     2*xy + 2*wz,    1 - 2*x2 - 2*z2,  2*yz - 2*wx,      0,
+                     2*xz - 2*wy,    2*yz + 2*wx,      1 - 2*x2 - 2*y2,  0,
+                     0, 0, 0, 1);
+   #elif Z_AXIS == FAR_TO_NEAR
+      return Matrix(1-2*y2-2*z2,  2*xy + 2*wz,   2*xz - 2*wy,      0,
+                     2*xy - 2*wz,  1-2*x2-2*z2,   2*yz + 2*wx,      0,
+                     2*xz + 2*wy,  2*yz - 2*wx,   1 - 2*x2 - 2*y2,  0,
+                     0, 0, 0, 1);
+   #endif 
+   }
 };
 
 //-------------------------------- Plane --------------------------------------
