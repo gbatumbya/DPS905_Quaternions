@@ -15,14 +15,6 @@
 //
 #define DEFAULT_SHININESS 10
 
-// Math Functions
-//
-const float PI =  3.14159265358979323846f; 
-#define SQR(x) ((x) * (x))
-#define DEGTORAD(x) (((x) * PI) / 180.0f)
-#define RADTODEG(x) (((x) * 180.0f) / PI)
-#define LIMIT_RANGE(low, value, high)  { if (value < low) value = low; else if(value > high) value = high; }
-
 //-------------------------------- Vector -------------------------------------
 //
 struct Matrix;
@@ -132,22 +124,6 @@ struct Matrix {
 };
 
 Matrix rotate(const Vector& axis, float rad);
-
-//------------------------------- Quaternion --------------------------------------
-// Reference: http://www.gamedev.net/page/resources/_/technical/math-and-physics/quaternion-powers-r1095
-struct Quaternion 
-{
-   float x, y, z, w;
-
-   Quaternion() : x(0), y(0), z(0), w(1) {}           // Indentity quaternion for multiplication
-   Quaternion(float xx, float yy, float zz, float ww) : x(xx), y(yy), z(zz), w(ww) { normalize(); }
-   Quaternion(float, float, float);                   // From euler angles in degrees
-   Quaternion(Vector, float);                         // From axis angle representation
-   void normalize();                                  // normalize the quaternion
-   Quaternion operator*(const Quaternion &q) const;
-   Quaternion& operator=(const Quaternion &q);
-   Matrix getRotationMatrix() const;
-};
 
 //-------------------------------- Plane --------------------------------------
 //
