@@ -26,6 +26,7 @@ public:
 //
 struct Matrix;
 struct Vector;
+struct Quaternion;
 
 class iFrame {
   public:
@@ -39,6 +40,7 @@ class iFrame {
     virtual Vector orientation(char axis) const         = 0;
 	virtual Matrix world() const                        = 0;
     virtual void   attachTo(iFrame* parent)             = 0;
+    virtual Quaternion quaternion() const              = 0;
 };
 
 class iShape {

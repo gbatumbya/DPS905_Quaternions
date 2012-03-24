@@ -22,22 +22,25 @@ class Frame : public iFrame {
 
     Matrix T;       // relative transformation wrt parent frame or world space
     iFrame* parent; // points to parent frame, if any
+    Quaternion Q;
 
   public:
-    Frame();
-	void   scale(float sx, float sy, float sz)   { T.scale(sx, sy, sz); }
-	void   rotatex(float rad)                    { T.rotatex(rad); }
-    void   rotatey(float rad)                    { T.rotatey(rad); }
-    void   rotatez(float rad)                    { T.rotatez(rad); }
-    void   rotate(const Vector& axis, float rad) { T.rotate(axis, rad); }
-	void   translate(float x, float y, float z)  { T.translate(x, y, z); }
-    void   orient(const Matrix& rot)             { T.orient(rot); }
-    Vector position() const;
-    Matrix rotation() const;
-	Vector orientation(const Vector& v) const;
-	Vector orientation(char c) const;
-    Matrix world() const;
-	void   attachTo(iFrame* newParent);
+   Frame();
+   void   scale(float sx, float sy, float sz)      { T.scale(sx, sy, sz); }
+   void   rotatex(float rad)                       { rotate(Vector(1, 0, 0), rad); }
+   void   rotatey(float rad)                       { rotate(Vector(0, 1, 0), rad); }
+   void   rotatez(float rad)                       { rotate(Vector(0, 0, 1), rad); }
+   void   rotate(const Vector& axis, float rad)    { Q = Q * Quaternion(axis, rad); }
+   void   translate(float x, float y, float z)     { T.translate(x, y, z); }
+   void   orient(const Matrix& rot)                { quaternion().getRotationMatrix().orient(rot); }
+   Quaternion quaternion() const                   { return parent ? parent->quaternion() * Q : Q; }
+   Vector position() const;
+   Matrix rotation() const;
+   Vector orientation(const Vector& v) const;
+   Vector orientation(char c) const;
+   Matrix world() const;
+   void   attachTo(iFrame* newParent);
+
     virtual ~Frame() {}
 };
 

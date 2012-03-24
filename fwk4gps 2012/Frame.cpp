@@ -14,16 +14,16 @@
 //
 // The Frame object represents a reference frame in the Modelling Layer
 //
-Frame::Frame() : T(1), parent(0) { }
+Frame::Frame() : Q(), T(1), parent(0) { }
 
 // position returns the Frame's position vector in world space
 //
 // Note that this method constructs the vector recursively
 //
 Vector Frame::position() const {
-
-	return parent ? ::position(T) * parent->rotation() + parent->position() : 
-	 ::position(T);
+   Matrix t = T * rotation();
+	return parent ? ::position(t) * parent->rotation() + parent->position() : 
+	 ::position(t);
 }
 
 // rotation returns the Frame's orientation in world space
@@ -31,8 +31,8 @@ Vector Frame::position() const {
 // Note that this method constructs the transformation recursively
 //
 Matrix Frame::rotation() const {
-
-	return parent ? ::rotation(T) * parent->rotation() : ::rotation(T);
+   return quaternion().getRotationMatrix();
+	//return parent ? ::rotation(T) * parent->rotation() : ::rotation(T);
 }
 
 // orientation returns the orientation of local vector v in world space
@@ -90,23 +90,29 @@ Matrix Frame::world() const {
 //
 void Frame::attachTo(iFrame* newParent) {
 
-	// detach from current parent, if any
-    if (parent)
-        T = world();
-    parent = 0;
-    // attach to newParent
-	parent = newParent;
-    if (parent) {
-        // convert rotation to a relative rotation wrt parent frame
-		Matrix m = parent->rotation();
-		m = m.transpose();
-		T.rotate(m);
-        // express offset in local coordinates wrt to parent frame
-        Vector p = (::position(T) - parent->position()) * m;
-        T.m41 = p.x;
-        T.m42 = p.y;
-        T.m43 = p.z;
-    }
+   // detach from current parent, if any
+   if (parent)
+   {
+      Matrix world = parent->world();
+      T.m41 = world.m41;
+      T.m42 = world.m42;
+      T.m43 = world.m43;
+   }
+    
+   parent = 0;
+   // attach to newParent
+   parent = newParent;
+   if (parent) {
+      // convert rotation to a relative rotation wrt parent frame
+      Matrix m = parent->quaternion().getRotationMatrix();
+      m = m.transpose(); // inverse quaternion
+      T.rotate(m);
+      // express offset in local coordinates wrt to parent frame
+      Vector p = (::position(T) - parent->position()) * m;
+      T.m41 = p.x;
+      T.m42 = p.y;
+      T.m43 = p.z;
+   }
 }
 
 //-------------------------------- Shape ----------------------------

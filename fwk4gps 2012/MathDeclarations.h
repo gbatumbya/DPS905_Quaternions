@@ -174,7 +174,7 @@ struct Quaternion
    }
 
    // From axis angle representation
-   Quaternion(Vector v, float ww)
+   Quaternion(Vector v, float rad)
    {
       // if axis is zero, then set to unit quaternion
       if (v.x == 0 && v.y == 0 && v.z == 0)         
@@ -192,7 +192,6 @@ struct Quaternion
          v = normal(v);
       }  
    
-      double rad = DEGTORAD(ww) / 2;
       double scale   = sin(rad);
 
       x = float(v.x * scale);
