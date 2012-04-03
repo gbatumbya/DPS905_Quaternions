@@ -115,12 +115,12 @@ void Frame::attachTo(iFrame* newParent) {
    if (parent)
    {
        // convert rotation to a relative rotation wrt parent frame
-       Q = parent->quaternion().inverse() * Q;
+       Quaternion q = parent->quaternion().inverse();
 
-       //T.rotate(m);M
-       // express offset in local coordinates wrt to parent frame
+      //T.rotate(m);M
+      // express offset in local coordinates wrt to parent frame
       // m.m41 = m.m42 = m.m43 = 0;
-      Vector p = Q.inverse() * (::position(T) - parent->position());
+      Vector p = q * (::position(T) - parent->position());
       T.m41 = p.x;
       T.m42 = p.y;
       T.m43 = p.z;
