@@ -27,21 +27,20 @@ class Frame : public iFrame {
   public:
    Frame();
    void   scale(float sx, float sy, float sz)      { T.scale(sx, sy, sz); }
-   void   rotatex(float rad)                       { rotate(Vector(1, 0, 0), rad); }
-   void   rotatey(float rad)                       { rotate(Vector(0, 1, 0), rad); }
-   void   rotatez(float rad)                       { rotate(Vector(0, 0, 1), rad); }
+   void   rotatex(float rad)                       { Q = Q * Quaternion(Vector(rad, 0, 0)); }
+   void   rotatey(float rad)                       { Q = Q * Quaternion(Vector(0, rad, 0)); }
+   void   rotatez(float rad)                       { Q = Q * Quaternion(Vector(0, 0, rad)); }
    void   rotate(const Vector& axis, float rad)    { Q = Q * Quaternion(axis, rad); }
    void   translate(float x, float y, float z)     { T.translate(x, y, z); }
-   void   orient(const Matrix& rot)                { quaternion().getRotationMatrix().orient(rot); }
-   Quaternion quaternion() const                   { return parent ? parent->quaternion() * Q : Q; }
+   void   orient(const Matrix& rot)                { T.orient(rot); }
+   Quaternion quaternion() const                   { return parent ? Q * parent->quaternion() : Q; }
    Vector position() const;
    Matrix rotation() const;
    Vector orientation(const Vector& v) const;
    Vector orientation(char c) const;
    Matrix world() const;
    void   attachTo(iFrame* newParent);
-
-    virtual ~Frame() {}
+   virtual ~Frame() {}
 };
 
 //-------------------------------- Shape ----------------------------

@@ -21,9 +21,8 @@ Frame::Frame() : Q(), T(1), parent(0) { }
 // Note that this method constructs the vector recursively
 //
 Vector Frame::position() const {
-   Matrix t = T * rotation();
-	return parent ? ::position(t) * parent->rotation() + parent->position() : 
-	 ::position(t);
+   return parent ? parent->quaternion() * ::position(T) + parent->position() : 
+	 ::position(T);
 }
 
 // rotation returns the Frame's orientation in world space
@@ -32,16 +31,13 @@ Vector Frame::position() const {
 //
 Matrix Frame::rotation() const {
    return quaternion().getRotationMatrix();
-	//return parent ? ::rotation(T) * parent->rotation() : ::rotation(T);
 }
 
 // orientation returns the orientation of local vector v in world space
 //
 Vector Frame::orientation(const Vector& v) const {
-
-    return v * rotation();
+   return quaternion() * v;
 }
-
 
 // orientation returns the orientation of the local ? axis of the
 // Frame in world space
@@ -72,10 +68,21 @@ Vector Frame::orientation(char axis) const {
 // Note that this function constructs the transformation recursively
 //
 Matrix Frame::world() const {
+   Matrix w = quaternion().getRotationMatrix();
+   w.m41 = T.m41;
+   w.m42 = T.m42;
+   w.m43 = T.m43;
+   
+   if (parent)
+   {
+      Vector pos = ::position(T) * parent->world();
 
-    Matrix w = parent ? T * parent->world() : T;
-    w.m43 *= MODEL_Z_AXIS;
-    return w;
+      w.m41 = pos.x;
+      w.m42 = pos.y;
+      w.m43 = pos.z;
+   }
+
+   return w;
 }
 
 // attachTo attaches the current Frame to iFrame* newParent
@@ -90,25 +97,30 @@ Matrix Frame::world() const {
 //
 void Frame::attachTo(iFrame* newParent) {
 
-   // detach from current parent, if any
+	// detach from current parent, if any
    if (parent)
    {
-      Matrix world = parent->world();
-      T.m41 = world.m41;
-      T.m42 = world.m42;
-      T.m43 = world.m43;
+      Vector w = ::position(world());
+      
+      T.m41 = w.x;
+      T.m42 = w.y;
+      T.m43 = w.z;
+
+      Q = quaternion();
    }
-    
+   
    parent = 0;
    // attach to newParent
-   parent = newParent;
-   if (parent) {
-      // convert rotation to a relative rotation wrt parent frame
-      Matrix m = parent->quaternion().getRotationMatrix();
-      m = m.transpose(); // inverse quaternion
-      T.rotate(m);
-      // express offset in local coordinates wrt to parent frame
-      Vector p = (::position(T) - parent->position()) * m;
+	parent = newParent;
+   if (parent)
+   {
+       // convert rotation to a relative rotation wrt parent frame
+       Q = parent->quaternion().inverse() * Q;
+
+       //T.rotate(m);M
+       // express offset in local coordinates wrt to parent frame
+      // m.m41 = m.m42 = m.m43 = 0;
+      Vector p = Q.inverse() * (::position(T) - parent->position());
       T.m41 = p.x;
       T.m42 = p.y;
       T.m43 = p.z;

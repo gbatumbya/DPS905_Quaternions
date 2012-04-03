@@ -10,7 +10,6 @@
  * copyright (c) 2012 Chris Szalwinski 
  * distributed under TPL - see ../Licenses.txt
  */
-
 #define _USE_MATH_DEFINES
 #include <math.h> 
 
@@ -21,8 +20,7 @@
 // Math Functions
 //
 #define SQR(x) ((x) * (x))
-#define DEGTORAD(x) (((x) * M_PI) / 180.0f)
-#define RADTODEG(x) (((x) * 180.0f) / M_PI)
+#define TOLERANCE 0.00001f
 #define LIMIT_RANGE(low, value, high)  { if (value < low) value = low; else if(value > high) value = high; }
 
 //-------------------------------- Vector -------------------------------------
@@ -119,18 +117,18 @@ struct Matrix {
     Matrix& operator-=(const Matrix& a);
     Matrix& operator*=(const Matrix& m);
     Matrix  transpose() const;
-	Matrix& translate(float x, float y, float z);
-	Matrix& rotatex(float rad);
-	Matrix& rotatey(float rad);
-	Matrix& rotatez(float rad);
-	Matrix& rotate(const Vector& v, float rad);
-	Matrix& rotate(const Matrix& rot);
-	Matrix& scale(float sx, float sy, float sz);
-	Matrix& orient(const Matrix& rot);
-	Vector  position() const;
-	Matrix  rotation() const;
-	Vector  direction(const Vector& v) const;
-	Vector  direction(char c) const;
+   Matrix& translate(float x, float y, float z);
+   Matrix& rotatex(float rad);
+   Matrix& rotatey(float rad);
+   Matrix& rotatez(float rad);
+   Matrix& rotate(const Vector& v, float rad);
+   Matrix& rotate(const Matrix& rot);
+   Matrix& scale(float sx, float sy, float sz);
+   Matrix& orient(const Matrix& rot);
+   Vector  position() const;
+   Matrix  rotation() const;
+   Vector  direction(const Vector& v) const;
+   Vector  direction(char c) const;
 };
 
 Matrix rotate(const Vector& axis, float rad);
@@ -142,27 +140,27 @@ struct Quaternion
    float x, y, z, w;
 
    Quaternion(float xx = 0.0f, float yy = 0.0f, float zz = 0.0f, float ww = 1.0f) :
-      x(xx), y(yy), z(zz), w(ww) { normalize(); }
+   x(xx), y(yy), z(zz), w(ww) { normalize(); }
 
-   // From euler angles in degrees
-   Quaternion(float wX, float wY, float wZ)
+   // From euler angles in radians
+   Quaternion(Vector euler)
    {
-      double   
-      roll     = DEGTORAD(wX) / 2.0, 
-      pitch    = DEGTORAD(wY) / 2.0,
-      yaw      = DEGTORAD(wZ) / 2.0,
+      float   
+      roll     = euler.x / 2, 
+      pitch    = euler.y / 2,
+      yaw      = euler.z / 2,
 
-      cosYaw   = cos(yaw),
-      cosPitch = cos(pitch),
-      cosRoll  = cos(roll),
-      sinYaw   = sin(yaw),
-      sinPitch = sin(pitch),
-      sinRoll  = sin(roll),
+      cosYaw   = cosf(yaw),
+      cosPitch = cosf(pitch),
+      cosRoll  = cosf(roll),
+      sinYaw   = sinf(yaw),
+      sinPitch = sinf(pitch),
+      sinRoll  = sinf(roll),
 
-      cosYawcosPitch    = cosYaw* cosPitch,
-      cosYawsinPitch    = cosYaw* sinPitch,
-      sinYawsinPitch    = sinYaw * sinPitch,
-      sinYawcosPitch    = sinYaw * cosPitch;
+      cosYawcosPitch = cosYaw* cosPitch,
+      cosYawsinPitch = cosYaw* sinPitch,
+      sinYawsinPitch = sinYaw * sinPitch,
+      sinYawcosPitch = sinYaw * cosPitch;
 
    
        x = float(sinRoll * cosYawcosPitch     -    cosRoll * sinYawsinPitch);
@@ -174,7 +172,7 @@ struct Quaternion
    }
 
    // From axis angle representation
-   Quaternion(Vector v, float rad)
+   Quaternion(Vector v, float ww)
    {
       // if axis is zero, then set to unit quaternion
       if (v.x == 0 && v.y == 0 && v.z == 0)         
@@ -192,12 +190,13 @@ struct Quaternion
          v = normal(v);
       }  
    
-      double scale   = sin(rad);
+      float rad = ww / 2;
+      float scale = sinf(rad);
 
       x = float(v.x * scale);
       y = float(v.y * scale);
       z = float(v.z * scale);
-      w = float(cos(rad));
+      w = float(cosf(rad));
 
       normalize();
    }
@@ -205,18 +204,33 @@ struct Quaternion
    // normalize the quaternion
    void normalize()
    {
-      float norm = sqrt(SQR(x) + SQR(y) + SQR(z) + SQR(w));
+      float mag2 = SQR(x) + SQR(y) + SQR(z) + SQR(w);
 
-      x = x / norm;
-      y = y / norm;
-      z = z / norm;
-      w = w / norm;
+      if (fabs(mag2) > TOLERANCE && fabs(mag2 - 1.0f) > TOLERANCE)
+      {
+         float norm = sqrt(mag2);
 
-      LIMIT_RANGE(-1.0f, w, 1.0f);
+         x = x / norm;
+         y = y / norm;
+         z = z / norm;
+         w = w / norm;
+         
+         LIMIT_RANGE(-1.0f, w, 1.0f);
 
-      LIMIT_RANGE(-1.0f, x, 1.0f);
-      LIMIT_RANGE(-1.0f, y, 1.0f);
-      LIMIT_RANGE(-1.0f, z, 1.0f);
+         LIMIT_RANGE(-1.0f, x, 1.0f);
+         LIMIT_RANGE(-1.0f, y, 1.0f);
+         LIMIT_RANGE(-1.0f, z, 1.0f);
+      }
+   }
+
+   Quaternion conjugate() const
+   {
+      return Quaternion(-x, -y, -z, w);
+   }
+
+   Quaternion inverse() const
+   {
+      return conjugate(); // inverse of unit quaternion is the conjugate
    }
 
    Quaternion& operator=(const Quaternion &q)
@@ -238,7 +252,19 @@ struct Quaternion
          q.w*w - q.x*x - q.y*y - q.z*z);
    }
 
-   //Reference http://osdir.com/ml/games.devel.algorithms/2002-11/msg00318.html
+   Vector Quaternion::operator* (const Vector &v) const
+   {
+      // nVidia SDK implementation
+      Vector uv, uuv;
+      Vector qvec(x, y, z);
+      uv = ::cross(qvec, v);
+      uuv = ::cross(qvec, uv);
+      uv *= (2.0f * w);
+      uuv *= 2.0f;
+
+      return v + uv + uuv;
+   }
+
    Matrix getRotationMatrix() const
    {
       float 
@@ -253,15 +279,16 @@ struct Quaternion
       wy = w * y,
       wz = w * z;
 
-   #if Z_AXIS == NEAR_TO_FAR
-      return Matrix(1-2*y2-2*z2,    2*xy - 2*wz,      2*xz + 2*wy,      0,
-                     2*xy + 2*wz,    1 - 2*x2 - 2*z2,  2*yz - 2*wx,      0,
-                     2*xz - 2*wy,    2*yz + 2*wx,      1 - 2*x2 - 2*y2,  0,
+   
+   #if MODEL_Z_AXIS == NEAR_TO_FAR
+      return Matrix( 1-2*y2-2*z2,   2*xy + 2*wz,      2*xz - 2*wy,      0,
+                     2*xy - 2*wz,   1 - 2*x2 - 2*z2,  2*yz + 2*wx,      0,
+                     2*xz + 2*wy,   2*yz - 2*wx,      1 - 2*x2 - 2*y2,  0,
                      0, 0, 0, 1);
-   #elif Z_AXIS == FAR_TO_NEAR
-      return Matrix(1-2*y2-2*z2,  2*xy + 2*wz,   2*xz - 2*wy,      0,
-                     2*xy - 2*wz,  1-2*x2-2*z2,   2*yz + 2*wx,      0,
-                     2*xz + 2*wy,  2*yz - 2*wx,   1 - 2*x2 - 2*y2,  0,
+   #elif MODEL_Z_AXIS == FAR_TO_NEAR
+      return Matrix( 1-2*y2-2*z2,   2*xy - 2*wz,   2*xz + 2*wy,      0,
+                     2*xy + 2*wz,   1-2*x2-2*z2,   2*yz - 2*wx,      0,
+                     2*xz - 2*wy,    2*yz + 2*wx,  1 - 2*x2 - 2*y2,  0,
                      0, 0, 0, 1);
    #endif 
    }
@@ -286,7 +313,7 @@ struct Colour {
     float b;
     float a;
     Colour(float red = 0, float grn = 0, float blu = 0, float alp = 1) :
-	 r(red), g(grn), b(blu), a(alp) {}
+    r(red), g(grn), b(blu), a(alp) {}
     operator const float* () const { return &r; }
 };
 
