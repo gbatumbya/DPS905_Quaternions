@@ -97,7 +97,7 @@ Matrix Frame::world() const {
 //
 void Frame::attachTo(iFrame* newParent) {
 
-	// detach from current parent, if any
+   // detach from current parent, if any
    if (parent)
    {
       Vector w = ::position(world());
@@ -111,19 +111,19 @@ void Frame::attachTo(iFrame* newParent) {
    
    parent = 0;
    // attach to newParent
-	parent = newParent;
+   parent = newParent;
    if (parent)
    {
-       // convert rotation to a relative rotation wrt parent frame
-       Quaternion q = parent->quaternion().inverse();
+      // convert rotation to a relative rotation wrt parent frame
+      Quaternion q = parent->quaternion().inverse();
 
-      //T.rotate(m);M
       // express offset in local coordinates wrt to parent frame
-      // m.m41 = m.m42 = m.m43 = 0;
       Vector p = q * (::position(T) - parent->position());
       T.m41 = p.x;
       T.m42 = p.y;
       T.m43 = p.z;
+
+      Q = Q * q;
    }
 }
 
